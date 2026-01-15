@@ -1,30 +1,92 @@
 ---
 title: "HW4"
 author: "Marjah Sanon"
-date: "2026-01-15"
+date: "01/17/2026"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
-## R Markdown
+## exercise 1: merging
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+```{r merge-data}
+# read the cleaned csv files from hw3 (corrected regions mistake)
+maternal <- read.csv("maternal_mortality.csv")
+infant <- read.csv("infant_mortality.csv")
+life <- read.csv("life_expectancy.csv")
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+# merge maternal and infant on country
+merged <- merge(maternal, infant, by = c("Country", "Region"))
 
-```{r cars}
-summary(cars)
+# merge with life expectancy on country
+merged <- merge(merged, life, by = c("Country", "Region"))
+
+# check the merged data structure
+str(merged)
+
+# save as csv
+write.csv(merged, "merged_cia_data.csv", row.names = FALSE)
+
+# check file was created correctly
+merged_check <- read.csv("merged_cia_data.csv")
+str(merged_check)
+head(merged_check)
 ```
 
-## Including Plots
+## exercise 2: aggregating data
 
-You can also embed plots, for example:
+```{r aggregate-data}
+# aggregate by region using mean of each variable by region
+aggregated <- aggregate(cbind(Maternal_Mortality, Infant_Mortality, Life_Expectancy) ~ Region, 
+                       data = merged, 
+                       FUN = mean, 
+                       na.rm = TRUE)
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+# check aggregated data structure
+str(aggregated)
+
+# save as csv
+write.csv(aggregated, "aggregated_by_region.csv", row.names = FALSE)
+
+# check file was created correctly
+aggregated_check <- read.csv("aggregated_by_region.csv")
+str(aggregated_check)
+head(aggregated_check)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## exercise 3: reshaping
+
+```{r reshape-data}
+# reshape from wide to long format, keep country and region
+long <- reshape(merged,
+               varying = c("Maternal_Mortality", "Infant_Mortality", "Life_Expectancy"),
+               v.names = "Value",
+               timevar = "Indicator",
+               times = c("Maternal_Mortality", "Infant_Mortality", "Life_Expectancy"),
+               direction = "long")
+
+# remove the id column created by reshape
+long$id <- NULL
+
+# reorder columns
+long <- long[, c("Country", "Region", "Indicator", "Value")]
+
+# sort by country., then indicator
+long <- long[order(long$Country, long$Indicator), ]
+
+# reset row names
+row.names(long) <- NULL
+
+# check the reshaped data structure
+str(long)
+
+# save as csv
+write.csv(long, "long_format_data.csv", row.names = FALSE)
+
+# check file was created correctly
+long_check <- read.csv("long_format_data.csv")
+str(long_check)
+head(long_check, 12)
+```
